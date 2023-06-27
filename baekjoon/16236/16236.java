@@ -13,7 +13,7 @@ public class Main {
     private static final BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(System.out));
     private static int N;
     private static int[][] matrix;
-    private static Location[] adjoinCriteria = {
+    private static Location[] adjacentDirections = {
             new Location(-1, 0),
             new Location(0, -1),
             new Location(1, 0),
@@ -72,7 +72,7 @@ public class Main {
         Location babySharkLocation = null;
 
         for (int i = 0; i < N; i++) {
-            for (int j = 0; j < N ; j++) {
+            for (int j = 0; j < N; j++) {
                 if (matrix[i][j] == 9) {
                     babySharkLocation = new Location(i, j);
                     break;
@@ -85,7 +85,7 @@ public class Main {
         boolean eaten = true;
         int eatenCount = 0;
         while (eaten) {
-            eaten = bfs(babyShark, babyShark.size);
+            eaten = bfs(babyShark);
 
             if (eaten) {
                 eatenCount++;
@@ -97,48 +97,63 @@ public class Main {
         }
     }
 
-    private static boolean bfs(Shark babyShark, int babySharkSize) {
+    private static boolean bfs(Shark babyShark) {
+        // 방문 배열 setting
         boolean[][] visited = new boolean[N][N];
         visited[babyShark.location.row][babyShark.location.col] = true;
-        Queue<Information> queue = new LinkedList<>();
-        queue.add(new Information(new Location(babyShark.location.row, babyShark.location.col), 0));
 
-        List<Information> eatableInformations = new ArrayList<>();
+        // queue setting
+        Queue<BFSInformation> queue = new LinkedList<>();
+        queue.add(new BFSInformation(new Location(babyShark.location.row, babyShark.location.col), 0));
+
+        // 먹을 수 있는 물고기들에 대한 bfs 정보 list
+        List<BFSInformation> eatableFishInformations = new ArrayList<>();
 
         while (!queue.isEmpty()) {
-            Information currentInformation = queue.poll();
+            BFSInformation currentBFSInformation = queue.poll();
 
-            for (Location adjoinCriterion : adjoinCriteria) {
-                Location adjoinLocation = new Location(currentInformation.location.row + adjoinCriterion.row, currentInformation.location.col + adjoinCriterion.col);
+            for (Location adjoinDirection : adjacentDirections) {
+                Location adjoinLocation = new Location(currentBFSInformation.location.row + adjoinDirection.row, currentBFSInformation.location.col + adjoinDirection.col);
 
-                // 이동 가능하고 방문하지 않는 경우만 고려
-                if (!canMoveTo(adjoinLocation, babySharkSize) || visited[adjoinLocation.row][adjoinLocation.col]) {
+                // 이동이 불가능하거나 이미 방문한 위치라면 pass
+                if (!canMoveTo(adjoinLocation, babyShark.size) || visited[adjoinLocation.row][adjoinLocation.col]) {
                     continue;
                 }
 
-                // 먹을 수 있다면
-                if (canEat(adjoinLocation, babySharkSize)) {
-                    visited[adjoinLocation.row][adjoinLocation.col] = true;
-                    eatableInformations.add(new Information(new Location(adjoinLocation.row, adjoinLocation.col), currentInformation.distance + 1));
+                // 지금부턴 이동이 가능한 경우임.
+
+                visited[adjoinLocation.row][adjoinLocation.col] = true;
+
+                // 먹을 수 있는 물고기가 위치한 곳이라면 list에 추가
+                if (canEat(adjoinLocation, babyShark.size)) {
+                    eatableFishInformations.add(new BFSInformation(new Location(adjoinLocation.row, adjoinLocation.col), currentBFSInformation.distance + 1));
                 } else {
-                    visited[adjoinLocation.row][adjoinLocation.col] = true;
-                    queue.add(new Information(new Location(adjoinLocation.row, adjoinLocation.col), currentInformation.distance + 1));
+                    queue.add(new BFSInformation(new Location(adjoinLocation.row, adjoinLocation.col), currentBFSInformation.distance + 1));
                 }
             }
         }
 
-        if (eatableInformations.isEmpty()) {
+        // 먹을 수 있는 물고기가 없으면 없다고 알림
+        if (eatableFishInformations.isEmpty()) {
             return false;
         }
 
-        eatableInformations.sort(Information::compareTo);
-        Information nextBabySharkInformation = eatableInformations.get(0);
+        // 아래에서부턴 먹을 수 있는 물고기가 존재하는 경우임
+
+        // 가장 거리가 가깝고, 가장 위에 있고, 가장 왼쪽에 있는 순으로 bfs 정보 추출
+        eatableFishInformations.sort(BFSInformation::compareTo);
+        BFSInformation nextBabySharkInformation = eatableFishInformations.get(0);
+
+        // 최신화
         matrix[babyShark.location.row][babyShark.location.col] = 0;
         matrix[nextBabySharkInformation.location.row][nextBabySharkInformation.location.col] = 9;
         babyShark.location.row = nextBabySharkInformation.location.row;
         babyShark.location.col = nextBabySharkInformation.location.col;
+
+        // 시간(거리) 누적
         result += nextBabySharkInformation.distance;
 
+        // 먹을 수 있는 물고기가 있었다고 알림
         return true;
     }
 
@@ -159,8 +174,8 @@ public class Main {
     }
 
     private static class Location {
-        int row;
-        int col;
+        private int row;
+        private int col;
 
         public Location(int row, int col) {
             this.row = row;
@@ -168,29 +183,29 @@ public class Main {
         }
     }
 
-    private static class Information {
-        Location location;
-        int distance;
+    private static class BFSInformation {
+        private Location location;
+        private int distance;
 
-        public Information(Location location, int distance) {
+        public BFSInformation(Location location, int distance) {
             this.location = location;
             this.distance = distance;
         }
 
-        public int compareTo(Information information) {
-            if (this.distance != information.distance) {
-                return this.distance - information.distance;
-            } else if (this.location.row != information.location.row) {
-                return this.location.row - information.location.row;
+        private int compareTo(BFSInformation bfsInformation) {
+            if (this.distance != bfsInformation.distance) {
+                return this.distance - bfsInformation.distance;
+            } else if (this.location.row != bfsInformation.location.row) {
+                return this.location.row - bfsInformation.location.row;
             } else {
-                return this.location.col - information.location.col;
+                return this.location.col - bfsInformation.location.col;
             }
         }
     }
 
     private static class Shark {
-        Location location;
-        int size;
+        private Location location;
+        private int size;
 
         public Shark(Location location, int size) {
             this.location = location;
