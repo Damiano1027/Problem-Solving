@@ -1,124 +1,331 @@
 import java.io.*;
-import java.util.*;
+import java.util.StringTokenizer;
 
 public class Main {
     static final BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
     static final BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(System.out));
     static StringTokenizer tokenizer;
-    static int K;
-    static Wheel[] wheels = new Wheel[5];
-
-    static class Wheel {
-        int[] poles;
-        int contactedPoleIndex;
-        Wheel(int[] poles, int contactedPoleIndex) {
-            this.poles = poles;
-            this.contactedPoleIndex = contactedPoleIndex;
-        }
-        void rotate(int direction) {
-            if (direction == 1) {
-                int temp = poles[7];
-                for (int i = 7; i > 0; i--) {
-                    poles[i] = poles[i - 1];
-                }
-                poles[0] = temp;
-            } else {
-                int temp = poles[0];
-                for (int i = 0; i < 7; i++) {
-                    poles[i] = poles[i + 1];
-                }
-                poles[7] = temp;
-            }
-        }
-        int contactedPole() {
-            return poles[contactedPoleIndex];
-        }
+    static int N, M;
+    enum Direction {
+        UP, LEFT, DOWN, RIGHT;
     }
+    static class Result {
+        boolean redFinished, blueFinished;
+    }
+    static int min = Integer.MAX_VALUE;
 
     public static void main(String[] args) throws Exception {
-        for (int i = 0; i < 4; i++) {
+        char[][] matrix;
+        tokenizer = new StringTokenizer(reader.readLine());
+        N = Integer.parseInt(tokenizer.nextToken());
+        M = Integer.parseInt(tokenizer.nextToken());
+
+        matrix = new char[N][M];
+
+        for (int i = 0; i < N; i++) {
             String line = reader.readLine();
-
-            int[] poles = new int[8];
-            for (int j = 0; j < 8; j++) {
-                poles[j] = Character.getNumericValue(line.charAt(j));
+            for (int j = 0; j < line.length(); j++) {
+                matrix[i][j] = line.charAt(j);
             }
-            int contactedPoleIndex;
-
-            if (i == 0 || i == 2) {
-                contactedPoleIndex = 2;
-            } else {
-                contactedPoleIndex = 6;
-            }
-
-            wheels[i + 1] = new Wheel(poles, contactedPoleIndex);
         }
 
-        K = Integer.parseInt(reader.readLine());
-        for (int i = 0; i < K; i++) {
-            tokenizer = new StringTokenizer(reader.readLine());
+        solve(matrix);
 
-            int wheelNumber = Integer.parseInt(tokenizer.nextToken());
-            int direction = Integer.parseInt(tokenizer.nextToken());
-
-            rotate(wheelNumber, direction);
+        if (min == Integer.MAX_VALUE) {
+            writer.write("-1\n");
+        } else {
+            writer.write(String.format("%d\n", min));
         }
-
-        writer.write(String.format("%d\n", score()));
         writer.flush();
         writer.close();
     }
 
-    static void rotate(int wheelNumber, int direction) {
-        boolean left = isRange(wheelNumber - 1)
-                && (wheels[wheelNumber - 1].contactedPole() != wheels[wheelNumber].contactedPole());
-        boolean right = isRange(wheelNumber + 1)
-                && (wheels[wheelNumber + 1].contactedPole() != wheels[wheelNumber].contactedPole());
+    static void solve(char[][] matrix) {
+        dfs(1, matrix, Direction.UP);
+        dfs(1, matrix, Direction.LEFT);
+        dfs(1, matrix, Direction.DOWN);
+        dfs(1, matrix, Direction.RIGHT);
+    }
 
-        wheels[wheelNumber].rotate(direction);
-
-        if (left) {
-            rotateLeftWheel(wheelNumber - 1, direction * -1);
+    static void dfs(int count, char[][] matrix, Direction direction) {
+        if (count >= 11) {
+            return;
         }
-        if (right) {
-            rotateRightWheel(wheelNumber + 1, direction * -1);
+
+        if (direction.equals(Direction.UP)) {
+            char[][] copiedMatrix = copiedMatrix(matrix);
+            Result result = move(copiedMatrix, Direction.UP);
+            if (result.redFinished && !result.blueFinished) {
+                min = Math.min(min, count);
+                return;
+            } else {
+                dfs(count + 1, copiedMatrix, Direction.LEFT);
+                dfs(count + 1, copiedMatrix, Direction.DOWN);
+                dfs(count + 1, copiedMatrix, Direction.RIGHT);
+            }
+        } else if (direction.equals(Direction.LEFT)) {
+            char[][] copiedMatrix = copiedMatrix(matrix);
+            Result result = move(copiedMatrix, Direction.LEFT);
+            if (result.redFinished && !result.blueFinished) {
+                min = Math.min(min, count);
+                return;
+            } else {
+                dfs(count + 1, copiedMatrix, Direction.UP);
+                dfs(count + 1, copiedMatrix, Direction.DOWN);
+                dfs(count + 1, copiedMatrix, Direction.RIGHT);
+            }
+        } else if (direction.equals(Direction.DOWN)) {
+            char[][] copiedMatrix = copiedMatrix(matrix);
+            Result result = move(copiedMatrix, Direction.DOWN);
+            if (result.redFinished && !result.blueFinished) {
+                min = Math.min(min, count);
+                return;
+            } else {
+                dfs(count + 1, copiedMatrix, Direction.UP);
+                dfs(count + 1, copiedMatrix, Direction.LEFT);
+                dfs(count + 1, copiedMatrix, Direction.RIGHT);
+            }
+        } else if (direction.equals(Direction.RIGHT)) {
+            char[][] copiedMatrix = copiedMatrix(matrix);
+            Result result = move(copiedMatrix, Direction.RIGHT);
+            if (result.redFinished && !result.blueFinished) {
+                min = Math.min(min, count);
+                return;
+            } else {
+                dfs(count + 1, copiedMatrix, Direction.UP);
+                dfs(count + 1, copiedMatrix, Direction.LEFT);
+                dfs(count + 1, copiedMatrix, Direction.DOWN);
+            }
         }
     }
 
-    static void rotateLeftWheel(int wheelNumber, int direction) {
-        boolean left = isRange(wheelNumber - 1)
-                && (wheels[wheelNumber - 1].contactedPole() != wheels[wheelNumber].contactedPole());
+    static char[][] copiedMatrix(char[][] matrix) {
+        char[][] copiedMatrix = new char[N][M];
 
-        wheels[wheelNumber].rotate(direction);
-
-        if (left) {
-            rotateLeftWheel(wheelNumber - 1, direction * -1);
+        for (int row = 0; row < N; row++) {
+            for (int col = 0; col < M; col++) {
+                copiedMatrix[row][col] = matrix[row][col];
+            }
         }
+
+        return copiedMatrix;
     }
 
-    static void rotateRightWheel(int wheelNumber, int direction) {
-        boolean right = isRange(wheelNumber + 1)
-                && (wheels[wheelNumber + 1].contactedPole() != wheels[wheelNumber].contactedPole());
+    static Result move(char[][] matrix, Direction direction) {
+        Result result = new Result();
+        int redRow = 0, redCol = 0, blueRow = 0, blueCol = 0;
 
-        wheels[wheelNumber].rotate(direction);
-
-        if (right) {
-            rotateRightWheel(wheelNumber + 1, direction * -1);
+        for (int row = 1; row < N - 1; row++) {
+            for (int col = 1; col < M - 1; col++) {
+                if (matrix[row][col] == 'R') {
+                    redRow = row;
+                    redCol = col;
+                } else if (matrix[row][col] == 'B') {
+                    blueRow = row;
+                    blueCol = col;
+                }
+            }
         }
+
+        if (direction.equals(Direction.UP)) {
+            if (redRow < blueRow) {
+                while (isMovableTo(redRow - 1, redCol, matrix)) {
+                    matrix[redRow][redCol] = '.';
+
+                    if (matrix[redRow - 1][redCol] == 'O') {
+                        result.redFinished = true;
+                        break;
+                    } else {
+                        matrix[redRow - 1][redCol] = 'R';
+                        redRow--;
+                    }
+                }
+                while (isMovableTo(blueRow - 1, blueCol, matrix)) {
+                    matrix[blueRow][blueCol] = '.';
+
+                    if (matrix[blueRow - 1][blueCol] == 'O') {
+                        result.blueFinished = true;
+                        break;
+                    } else {
+                        matrix[blueRow - 1][blueCol] = 'B';
+                        blueRow--;
+                    }
+                }
+            } else {
+                while (isMovableTo(blueRow - 1, blueCol, matrix)) {
+                    matrix[blueRow][blueCol] = '.';
+
+                    if (matrix[blueRow - 1][blueCol] == 'O') {
+                        result.blueFinished = true;
+                        break;
+                    } else {
+                        matrix[blueRow - 1][blueCol] = 'B';
+                        blueRow--;
+                    }
+                }
+                while (isMovableTo(redRow - 1, redCol, matrix)) {
+                    matrix[redRow][redCol] = '.';
+
+                    if (matrix[redRow - 1][redCol] == 'O') {
+                        result.redFinished = true;
+                        break;
+                    } else {
+                        matrix[redRow - 1][redCol] = 'R';
+                        redRow--;
+                    }
+                }
+            }
+        } else if (direction.equals(Direction.LEFT)) {
+            if (redCol < blueCol) {
+                while (isMovableTo(redRow, redCol - 1, matrix)) {
+                    matrix[redRow][redCol] = '.';
+
+                    if (matrix[redRow][redCol - 1] == 'O') {
+                        result.redFinished = true;
+                        break;
+                    } else {
+                        matrix[redRow][redCol - 1] = 'R';
+                        redCol--;
+                    }
+                }
+                while (isMovableTo(blueRow, blueCol - 1, matrix)) {
+                    matrix[blueRow][blueCol] = '.';
+
+                    if (matrix[blueRow][blueCol - 1] == 'O') {
+                        result.blueFinished = true;
+                        break;
+                    } else {
+                        matrix[blueRow][blueCol - 1] = 'B';
+                        blueCol--;
+                    }
+                }
+            } else {
+                while (isMovableTo(blueRow, blueCol - 1, matrix)) {
+                    matrix[blueRow][blueCol] = '.';
+
+                    if (matrix[blueRow][blueCol - 1] == 'O') {
+                        result.blueFinished = true;
+                        break;
+                    } else {
+                        matrix[blueRow][blueCol - 1] = 'B';
+                        blueCol--;
+                    }
+                }
+                while (isMovableTo(redRow, redCol - 1, matrix)) {
+                    matrix[redRow][redCol] = '.';
+
+                    if (matrix[redRow][redCol - 1] == 'O') {
+                        result.redFinished = true;
+                        break;
+                    } else {
+                        matrix[redRow][redCol - 1] = 'R';
+                        redCol--;
+                    }
+                }
+            }
+        } else if (direction.equals(Direction.DOWN)) {
+            if (redRow > blueRow) {
+                while (isMovableTo(redRow + 1, redCol, matrix)) {
+                    matrix[redRow][redCol] = '.';
+
+                    if (matrix[redRow + 1][redCol] == 'O') {
+                        result.redFinished = true;
+                        break;
+                    } else {
+                        matrix[redRow + 1][redCol] = 'R';
+                        redRow++;
+                    }
+                }
+                while (isMovableTo(blueRow + 1, blueCol, matrix)) {
+                    matrix[blueRow][blueCol] = '.';
+
+                    if (matrix[blueRow + 1][blueCol] == 'O') {
+                        result.blueFinished = true;
+                        break;
+                    } else {
+                        matrix[blueRow + 1][blueCol] = 'B';
+                        blueRow++;
+                    }
+                }
+            } else {
+                while (isMovableTo(blueRow + 1, blueCol, matrix)) {
+                    matrix[blueRow][blueCol] = '.';
+
+                    if (matrix[blueRow + 1][blueCol] == 'O') {
+                        result.blueFinished = true;
+                        break;
+                    } else {
+                        matrix[blueRow + 1][blueCol] = 'B';
+                        blueRow++;
+                    }
+                }
+                while (isMovableTo(redRow + 1, redCol, matrix)) {
+                    matrix[redRow][redCol] = '.';
+
+                    if (matrix[redRow + 1][redCol] == 'O') {
+                        result.redFinished = true;
+                        break;
+                    } else {
+                        matrix[redRow + 1][redCol] = 'R';
+                        redRow++;
+                    }
+                }
+            }
+        } else if (direction.equals(Direction.RIGHT)) {
+            if (redCol > blueCol) {
+                while (isMovableTo(redRow, redCol + 1, matrix)) {
+                    matrix[redRow][redCol] = '.';
+
+                    if (matrix[redRow][redCol + 1] == 'O') {
+                        result.redFinished = true;
+                        break;
+                    } else {
+                        matrix[redRow][redCol + 1] = 'R';
+                        redCol++;
+                    }
+                }
+                while (isMovableTo(blueRow, blueCol + 1, matrix)) {
+                    matrix[blueRow][blueCol] = '.';
+
+                    if (matrix[blueRow][blueCol + 1] == 'O') {
+                        result.blueFinished = true;
+                        break;
+                    } else {
+                        matrix[blueRow][blueCol + 1] = 'B';
+                        blueCol++;
+                    }
+                }
+            } else {
+                while (isMovableTo(blueRow, blueCol + 1, matrix)) {
+                    matrix[blueRow][blueCol] = '.';
+
+                    if (matrix[blueRow][blueCol + 1] == 'O') {
+                        result.blueFinished = true;
+                        break;
+                    } else {
+                        matrix[blueRow][blueCol + 1] = 'B';
+                        blueCol++;
+                    }
+                }
+                while (isMovableTo(redRow, redCol + 1, matrix)) {
+                    matrix[redRow][redCol] = '.';
+
+                    if (matrix[redRow][redCol + 1] == 'O') {
+                        result.redFinished = true;
+                        break;
+                    } else {
+                        matrix[redRow][redCol + 1] = 'R';
+                        redCol++;
+                    }
+                }
+            }
+        }
+
+        return result;
     }
 
-    static boolean isRange(int wheelNumber) {
-        return wheelNumber >= 1 && wheelNumber <= 4;
-    }
-
-    static int score() {
-        int score = 0;
-
-        score += wheels[1].poles[0] == 0 ? 0 : 1;
-        score += wheels[2].poles[0] == 0 ? 0 : 2;
-        score += wheels[3].poles[0] == 0 ? 0 : 4;
-        score += wheels[4].poles[0] == 0 ? 0 : 8;
-
-        return score;
+    static boolean isMovableTo(int row, int col, char[][] matrix) {
+        return row > 0 && row < N - 1 && col > 0 && col < M - 1
+                && (matrix[row][col] == '.' || matrix[row][col] == 'O');
     }
 }
